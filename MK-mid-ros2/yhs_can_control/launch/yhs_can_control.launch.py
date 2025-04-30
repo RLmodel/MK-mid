@@ -24,6 +24,7 @@ def generate_launch_description():
                                 executable='yhs_can_control_node',
                                 name='yhs_can_control_node',
                                 output='screen',
+                                emulate_tty = True,
                                 parameters=[parameter_file]
                                 )
 

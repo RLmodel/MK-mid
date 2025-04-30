@@ -14,6 +14,11 @@
 #include <iomanip>
 #include <sstream>
 
+#include "tf2_ros/transform_broadcaster.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 
 #include "geometry_msgs/msg/pose_with_covariance.hpp"
@@ -55,6 +60,8 @@ private:
   rclcpp::Publisher<yhs_can_interfaces::msg::ChassisInfoFb>::SharedPtr chassis_info_fb_publisher_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+
   void io_cmd_callback(const yhs_can_interfaces::msg::IoCmd::SharedPtr io_cmd_msg);
   
   void ctrl_cmd_callback(const yhs_can_interfaces::msg::CtrlCmd::SharedPtr ctrl_cmd_msg);
@@ -65,6 +72,12 @@ private:
   
   void publish_odom(const double velocity, const double steering);
   
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber_;
+
+  void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr cmd_vel_msg);
+
+  rclcpp::Publisher<yhs_can_interfaces::msg::CtrlCmd>::SharedPtr ctrl_cmd_publisher_;
+
 };
 
 }

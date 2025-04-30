@@ -16,6 +16,7 @@ find_package(rclcpp REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(yhs_can_interfaces REQUIRED)
@@ -32,6 +33,7 @@ ament_target_dependencies(
   "std_msgs"
   "rclcpp"
   "nav2_msgs"
+  "tf2_geometry_msgs"
   "tf2_msgs"
   "sensor_msgs"
   "geometry_msgs"

@@ -1,0 +1,10 @@
+[Unit]
+After=NetworkManager.service time-sync.target
+
+[Service]
+Type=simple
+User=ros2
+ExecStart=/usr/sbin/tracer
+
+[Install]
+WantedBy=multi-user.target

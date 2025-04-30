@@ -22,7 +22,15 @@
 		chassis_info_fb_publisher_ = node_->create_publisher<yhs_can_interfaces::msg::ChassisInfoFb>("chassis_info_fb", 1);
 		
 		odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>("odom", 1);
-		
+				
+			tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(node_);
+
+			cmd_vel_subscriber_ = node_->create_subscription<geometry_msgs::msg::Twist>(
+								"/cmd_vel",
+								1,
+								std::bind(&CanControl::cmd_vel_callback, this, std::placeholders::_1));
+
+			ctrl_cmd_publisher_ = node_->create_publisher<yhs_can_interfaces::msg::CtrlCmd>("ctrl_cmd",1);
 	}
 
 
@@ -74,6 +82,79 @@
 			RCLCPP_ERROR_STREAM(rclcpp::get_logger("yhs_can_control_node"), "Failed to send message: " << strerror(errno));
 		}	
 	}
+
+
+// cmd_vel control
+void CanControl::cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr cmd_vel_msg)
+{
+	yhs_can_interfaces::msg::CtrlCmd msg;
+	
+	RCLCPP_INFO_STREAM(node_->get_logger(), "cmd_vel topic is incoming. ");
+
+	// msg.ctrl_cmd_velocity = cmd_vel_msg->linear.x;
+	
+	// float steering_angle_rad = atan2(wheel_base_*cmd_vel_msg->angular.z, cmd_vel_msg->linear.x); 
+	float steering_angle_rad = atan2(wheel_base_*cmd_vel_msg->angular.z , cmd_vel_msg->linear.x); 
+	RCLCPP_INFO_STREAM(node_->get_logger(), "steering_angle_rad: " << steering_angle_rad);
+	float steering_angle_deg = steering_angle_rad * (180.0 / M_PI);
+	RCLCPP_INFO_STREAM(node_->get_logger(), "steering_angle_deg: " << steering_angle_deg);
+	
+
+	if (cmd_vel_msg->linear.x > 0.0)
+	{
+		msg.ctrl_cmd_gear = 4; // Drive
+		msg.ctrl_cmd_velocity = cmd_vel_msg->linear.x;
+	} 	
+	
+	else if (cmd_vel_msg->linear.x < 0.0)
+	{	
+		msg.ctrl_cmd_gear = 2; // Rear
+		msg.ctrl_cmd_velocity = -cmd_vel_msg->linear.x;
+		
+		if (cmd_vel_msg->angular.z > 0.0)
+			steering_angle_deg = -steering_angle_deg + 180.0;
+
+		else if (cmd_vel_msg->angular.z < 0.0)
+			steering_angle_deg = -steering_angle_deg - 180.0;
+		
+		else
+			steering_angle_deg = 0.0;
+	}
+
+	else
+	{
+		msg.ctrl_cmd_gear = 3; // Parking: 1 , Neutral: 3
+		if (cmd_vel_msg->angular.z == 0)
+		{
+			steering_angle_deg = 0.0;
+		}
+		
+		else {
+			steering_angle_deg = cmd_vel_msg->angular.z*180/M_PI;
+		}
+		
+	}
+
+	// steering_angle limitation
+	if (abs(steering_angle_deg) > 28.0)
+	{
+		RCLCPP_WARN_STREAM(node_->get_logger(), "steering_angle_over: " << steering_angle_deg);
+		steering_angle_deg = 28.0*abs(steering_angle_deg)/steering_angle_deg;
+		RCLCPP_INFO_STREAM(node_->get_logger(), "steering_angle_limit: " << steering_angle_deg);
+	} 
+
+	RCLCPP_INFO_STREAM(node_->get_logger(), "steering_angle_deg: " << steering_angle_deg);
+	msg.ctrl_cmd_steering = steering_angle_deg;
+
+	ctrl_cmd_publisher_->publish(msg);
+
+	// msg.ctrl_cmd_gear=8;
+	// msg.ctrl_cmd_x_linear=cmd_vel_msg->linear.x;
+	// msg.ctrl_cmd_y_linear=cmd_vel_msg->linear.y;
+	// ctrl_cmd_publisher_->publish(msg);
+}
+// cmd_vel control
+
 
 	void CanControl::ctrl_cmd_callback(const yhs_can_interfaces::msg::CtrlCmd::SharedPtr ctrl_cmd_msg)
 	{
@@ -414,6 +495,20 @@ whether the can line is connected correctly, and whether the chassis is powered 
 		twist_cov.twist.angular.y = 0.0;
 		twist_cov.twist.angular.z = angular_vel;
 		odom_msg.twist = twist_cov;
+
+		// tf //
+		geometry_msgs::msg::TransformStamped odom_tf;
+		odom_tf.header.stamp = current_time; 
+		odom_tf.header.frame_id = "odom";
+		odom_tf.child_frame_id = "base_link";
+		odom_tf.transform.translation.x = x_;
+		odom_tf.transform.translation.y = y_;
+		odom_tf.transform.translation.z = 0;
+		odom_tf.transform.rotation = pose_cov.pose.orientation;
+
+    	tf_broadcaster_->sendTransform(odom_tf);
+
+		// tf //
 
 		odom_pub_->publish(odom_msg);
 

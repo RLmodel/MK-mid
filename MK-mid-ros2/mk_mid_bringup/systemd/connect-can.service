@@ -1,0 +1,7 @@
+[Unit]
+After=network.service time-sync.target
+[Service]
+Type=simple
+ExecStart=/usr/sbin/connect-can
+[Install]
+WantedBy=multi-user.target
